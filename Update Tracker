@@ -1,0 +1,429 @@
+Option Explicit
+'Option Private Module
+
+'Update Tracker from Demand sheet
+
+Const demandSheet = "C:\Users\vv20289\Desktop\Demand\Asia Q1 2019 Fitment - Post RPC BOW 20181012 (Publish).xlsx"
+Const trackerSheet = "C:\Users\vv20289\Desktop\Asia EMEA Tracker Master.xlsm"
+Const rel = "R1"
+
+Public lastRow As Integer
+Public lastCol As Integer
+Public col As Integer
+
+Sub UpdateRelTracker()
+
+    Dim oppm(500, 10) As String
+
+    Dim r As Integer
+    Dim c As Integer
+    Dim o As Integer
+    Dim x As Integer
+    Dim y As Integer
+
+    Dim addCnt As Integer
+    Dim updateCnt As Integer
+
+    Dim doppmCol As Integer
+    Dim ddescCol As Integer
+    Dim dstatusCol As Integer
+    Dim de0Col As Integer
+    Dim dregionCol As Integer
+    Dim dbsgleadCol As Integer
+    Dim dbsgCol As Integer
+    Dim dpvCol As Integer
+    Dim dpmCol As Integer
+    Dim depicCol As Integer
+    Dim ddeptCol As Integer
+
+    Dim toppmCol As Integer
+    Dim ttotusCol As Integer
+    Dim tdescCol As Integer
+    Dim tstatusCol As Integer
+    Dim taddDteCol As Integer
+    Dim tbsgleadCol As Integer
+    Dim tbsgCol As Integer
+    Dim tpvCol As Integer
+    Dim tpmCol As Integer
+    Dim te0DemandCol As Integer
+    Dim te0Col As Integer
+    Dim tbaAllocCol As Integer
+    Dim tba80Col As Integer
+    Dim tba20Col As Integer
+    Dim tremcol As Integer
+    Dim tepicCol As Integer
+    Dim tdeptCol As Integer
+
+    Dim lastChar As Integer
+
+    Dim demandFile As String
+    Dim trackerFile As String
+    Dim bkupFileName As String
+
+    Dim totusFormula As String
+    Dim tbaallocFormula As String
+    Dim sumE0Fromula As String
+    Dim sum80Formula As String
+    Dim sum20Formula As String
+    Dim updateFlag As String
+
+    Dim res As Range
+    Dim oppmrange As Range
+    Dim rng As Range
+
+    Dim dWb As Workbook
+    Dim tWb As Workbook
+
+    'On Error GoTo error
+
+    Debug.Print "Program Started"
+    Debug.Print "==============="
+
+
+    'Backup tracker file which will be updated
+    bkupFileName = Replace(trackerSheet, ".xlsm", " " & Format(Now, "dd-mmm")) & ".xlsm"
+    'FileCopy trackerSheet, bkupFileName
+
+    'Check if the input files exists
+    If Dir(demandSheet) = vbNullString Then
+        MsgBox "Demand sheet not found"
+        End
+    End If
+
+    If Dir(trackerSheet) = vbNullString Then
+        MsgBox "Tracker sheet not found"
+        End
+    End If
+
+    'Get position of last \
+    lastChar = InStrRev(demandSheet, "\")
+
+    'Get Demand file name
+    demandFile = Mid(demandSheet, lastChar + 1)
+    Debug.Print "Demand file - " & demandFile
+
+
+    'Get position of last \
+    lastChar = InStrRev(trackerSheet, "\")
+
+    'Get Demand file name
+    trackerFile = Mid(trackerSheet, lastChar + 1)
+    Debug.Print "Tracker file - " & trackerFile
+    Debug.Print " "
+
+    'Open Demand workbook
+    On Error Resume Next
+
+    Set dWb = Workbooks.Item(demandSheet)
+
+    If dWb Is Nothing Then
+        Workbooks.Open (demandSheet)
+    End If
+
+    'Open Tracker workbook
+    Set tWb = Workbooks.Item(trackerFile)
+
+    If tWb Is Nothing Then
+        Workbooks.Open (trackerSheet)
+    End If
+
+    'Deactivate screen update
+    Application.ScreenUpdating = False
+
+    'Activate Demand sheet
+    Workbooks(demandFile).Activate
+
+    If ActiveSheet.AutoFilterMode Then
+        If ActiveSheet.FilterMode Then
+            ActiveSheet.ShowAllData
+        End If
+    ElseIf ActiveSheet.FilterMode Then
+        ActiveSheet.ShowAllData
+    End If
+
+    'Get last populated row
+    Call findLastRow
+    Debug.Print "Last row in Demand file - " & lastRow
+
+    'Get last populated col
+    Call findLastCol
+    Debug.Print "Last col in Demand file - " & lastCol
+    Debug.Print " "
+
+   'Get col position with heading
+    doppmCol = findColByName("OPPM", lastCol)
+    ddescCol = findColByName("OPPM Description", lastCol)
+    de0Col = findColByName("Cards", lastCol)
+    dstatusCol = findColByName("Status", lastCol)
+    dregionCol = findColByName("RPC Market / Region View", lastCol)
+    dbsgleadCol = findColByName("IBIS Sr.Solution Lead", lastCol)
+    dbsgCol = findColByName("IBIS Solution Lead", lastCol)
+    dpvCol = findColByName("PV #", lastCol)
+    dpmCol = findColByName("PM Name", lastCol)
+    depicCol = findColByName("Standard Agile Epic", lastCol)
+    ddeptCol = findColByName("IBIS Department", lastCol)
+
+    o = 1
+
+    'Store the oppm / PV in an array
+    For r = 1 To lastRow
+        If Cells(r, doppmCol) <> "OPPM" And _
+            Cells(r, de0Col) <> 0 And _
+            Cells(r, dregionCol) <> "IN" And _
+            Cells(r, dregionCol) <> "TW" And _
+            Cells(r, dregionCol) <> "TW/IN" And _
+            Cells(r, dregionCol) <> "IN/TW" Then
+
+            oppm(o, 1) = Cells(r, doppmCol)         'OPPM
+            oppm(o, 2) = Cells(r, ddescCol)         'Desc
+            oppm(o, 3) = Cells(r, de0Col)           'E0
+            oppm(o, 4) = Cells(r, dbsgleadCol)      'BSG Lead
+            oppm(o, 5) = Cells(r, dbsgCol)          'BSG
+            oppm(o, 6) = Cells(r, dpvCol)           'PV
+            oppm(o, 7) = Cells(r, dpmCol)           'PM
+            oppm(o, 8) = Cells(r, dstatusCol)       'Status
+            oppm(o, 9) = Cells(r, depicCol)         'Epic Id
+            oppm(o, 10) = Cells(r, ddeptCol)        'Department
+
+            o = o + 1
+        End If
+    Next r
+
+    'Debug.Print "Demand file " & demandFile & " input - " & o
+    Debug.Print " "
+
+    'Activate Tracker workbook
+    Workbooks(trackerFile).Activate
+
+    If ActiveSheet.Name <> rel & " 19" Then
+        MsgBox "Select correct sheet"
+        Application.ScreenUpdating = True
+        End
+    End If
+
+    If ActiveSheet.AutoFilterMode Then
+        If ActiveSheet.FilterMode Then
+            ActiveSheet.ShowAllData
+        End If
+    ElseIf ActiveSheet.FilterMode Then
+        ActiveSheet.ShowAllData
+    End If
+
+    'Get col position with heading
+    toppmCol = findColByName("OPPM", lastCol)
+    ttotusCol = findColByName("Total US", lastCol)
+    tdescCol = findColByName("Description", lastCol)
+    tstatusCol = findColByName("Status", lastCol)
+    taddDteCol = findColByName("Added Date", lastCol)
+    tbsgleadCol = findColByName("BSG Lead", lastCol)
+    tbsgCol = findColByName("BSG", lastCol)
+    tpvCol = findColByName("PV", lastCol)
+    tpmCol = findColByName("PM", lastCol)
+    te0DemandCol = findColByName("E0 from Demand", lastCol)
+    te0Col = findColByName("E0", lastCol)
+    tbaAllocCol = findColByName("BA Allocation", lastCol)
+    tba80Col = findColByName("80% Allocation", lastCol)
+    tba20Col = findColByName("20% Allocation", lastCol)
+    tremcol = findColByName("Remarks", lastCol)
+    tepicCol = findColByName("Epic Id", lastCol)
+    tdeptCol = findColByName("Department", lastCol)
+
+
+    'Find the OPPM # from array in tracker and update/insert
+    addCnt = 0
+    updateCnt = 0
+
+    For x = 1 To 500
+        If x > o Then 'read array until input count
+            GoTo ExitFor
+        End If
+
+        Set res = Range("b2:b500").Find(oppm(x, 1), LookIn:=xlValues)
+
+        If res Is Nothing Then 'OPPM not found in tracker
+            Call findLastRow
+
+            'Insert row below the current row using the formatting of above row
+            Rows(lastRow).Insert shift:=xlShiftDown, copyorigin:=xlFormatFromLeftOrAbove
+
+            'Assign values and formula in new
+            Cells(lastRow, 1) = Cells(lastRow, 1).Offset(-1, 0).Value   'Release
+            Cells(lastRow, toppmCol) = oppm(x, 1)                       'OPPM
+            Cells(lastRow, tdescCol) = oppm(x, 2)                       'Desc
+            Cells(lastRow, tstatusCol) = "Grooming Not Started"         'Status
+            Cells(lastRow, te0DemandCol) = oppm(x, 3)                   'E0
+            Cells(lastRow, taddDteCol) = DateValue(Now())               'Date Added
+            Cells(lastRow, tbsgleadCol) = oppm(x, 4)                    'BSG Lead
+            Cells(lastRow, tbsgCol) = oppm(x, 5)                        'BSG
+            Cells(lastRow, tpvCol) = oppm(x, 6)                         'PV
+            Cells(lastRow, tpmCol) = oppm(x, 7)                         'PM
+            Cells(lastRow, tepicCol) = oppm(x, 9)                       'Epic Id
+            Cells(lastRow, tdeptCol) = oppm(x, 10)                      'Department
+
+            'usLinkFormula = "=HYPERLINK('"#'"&CELL('"address'",INDEX(" & rel & " 19 US'" & _
+                                        "!B:B,MATCH(" & lastRow & ",'" & rel & " 19 US'" & _
+                                        "!B:B,0)))," & lastRow & ")"
+
+            'totusFormula = "=COUNTIF(" & "'" & rel & " 19 US" & "'" & "!$B:$B," & "B" & lastRow & ")"
+            'Cells(lastRow, ttotusCol).Formula = totusFormula
+
+            sumE0Fromula = "=SUM(AQ" & lastRow & ":BN" & lastRow & ")"
+            Cells(lastRow, te0Col).Formula = sumE0Fromula
+
+            tbaallocFormula = "=SUM(AX" & lastRow & ",AY" & lastRow & ",AZ" & lastRow & _
+                                   ",BA" & lastRow & ",BE" & lastRow & ",BF" & lastRow & _
+                                   ",BG" & lastRow & ",BJ" & lastRow & ",BK" & _
+                                   lastRow & "*1.66*13%)"
+            Cells(lastRow, tbaAllocCol).Formula = tbaallocFormula
+
+            sum80Formula = "=AN" & lastRow & "*80%"
+            Cells(lastRow, tba80Col).Formula = sum80Formula
+
+            sum20Formula = "=AN" & lastRow & "*20%"
+            Cells(lastRow, tba20Col).Formula = sum20Formula
+
+            Debug.Print oppm(x, 1) & " added at row " & lastRow
+            Debug.Print " "
+
+            addCnt = addCnt + 1
+
+        Else 'OPPM found
+            Range(res.Address).Select
+
+            y = Range(res.Address).row
+
+            updateFlag = "N"
+
+            If oppm(x, 8) = "RCR OUT" Then
+                Cells(y, tstatusCol) = "Dropped"
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #Status updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "Status updated - " & oppm(x, 8) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If Cells(y, te0DemandCol).Value <> oppm(x, 3) Then
+                Cells(y, te0DemandCol).Value = oppm(x, 3)
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #E0 updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "E0 updated - " & oppm(x, 3) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If Cells(y, tbsgleadCol).Value <> oppm(x, 4) Then
+                Cells(y, tbsgleadCol).Value = oppm(x, 4)
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #BSG Lead updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "BSG Lead updated - " & oppm(x, 4) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If Cells(y, tbsgCol).Value <> oppm(x, 5) Then
+                Cells(y, tbsgCol).Value = oppm(x, 5)
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #BSG updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "BSG updated - " & oppm(x, 5) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If Cells(y, tpvCol).Value <> oppm(x, 6) And _
+                oppm(x, 6) <> "-" Then
+                Cells(y, tpvCol).Value = oppm(x, 6)
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #PV updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "PV updated - " & oppm(x, 6) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If Cells(y, tpmCol).Value <> oppm(x, 7) Then
+                Cells(y, tpmCol).Value = oppm(x, 7)
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #PM updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "PM updated - " & oppm(x, 7) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If Cells(y, tepicCol).Value <> oppm(x, 9) Then
+                Cells(y, tepicCol).Value = oppm(x, 9)
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #Epic updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "Epic updated - " & oppm(x, 9) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If Cells(y, tdeptCol).Value <> oppm(x, 10) Then
+                Cells(y, tdeptCol).Value = oppm(x, 10)
+                Cells(y, tremcol) = Format(Now, "dd-mmm") & ": #Dept updated" & Chr(10) & Cells(y, tremcol).Value
+
+                updateFlag = "Y"
+                Debug.Print "Dept updated - " & oppm(x, 10) & " for " & oppm(x, 1)
+                Debug.Print " "
+            End If
+
+            If updateFlag = "Y" Then
+                updateCnt = updateCnt + 1
+            End If
+
+        End If
+
+ExitFor:
+
+    Next x
+
+    'Debug.Print "Array - "; x
+
+    'Close Demand workbook
+    Workbooks(demandSheet).Close
+    Application.ScreenUpdating = True
+
+    Debug.Print " "
+    Debug.Print "Audit Trail"
+    Debug.Print "==========="
+    Debug.Print "Input from Demand file " & demandFile & " - " & o
+    Debug.Print "OPPMs added in " & trackerFile & " - " & addCnt
+    Debug.Print "OPPMs updated in " & trackerFile & " - " & updateCnt
+    Debug.Print " "
+
+    Debug.Print "Program Ended"
+    Debug.Print "============="
+    End
+
+error:
+    MsgBox "Error : " & Err.Number & " " & Err.Description
+    Application.ScreenUpdating = True
+    End
+
+End Sub
+
+Sub findLastRow()
+
+    lastRow = Cells(Rows.Count, 1).End(xlUp).row
+
+    'Debug.Print lastRow
+End Sub
+
+Sub findLastCol()
+
+    lastCol = Cells(1, Columns.Count).End(xlToLeft).Column
+
+    'Debug.Print lastCol
+End Sub
+
+Function findColByName(colName As String, lastCol As Integer) As Integer
+
+    For col = 1 To lastCol
+        If Cells(1, col) = colName Then
+            Exit For
+        End If
+    Next col
+
+    findColByName = col
+
+End Function
