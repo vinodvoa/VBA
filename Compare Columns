@@ -1,0 +1,280 @@
+Option Explicit
+
+'Compare Release SP and Tracker based on certain cols
+
+Const srcSheet = "C:\Users\vv20289\Desktop\SP Data 10-Oct-18.xlsx"
+Const trackerSheet = "C:\Users\vv20289\Desktop\Asia EMEA Tracker Master.xlsm"
+Const rel = "R1"
+
+Public lastRow As Integer
+Public lastCol As Integer
+Public col As Integer
+
+Sub CompareTeamRelSheet()
+    Dim oppm(500, 10) As String
+
+    Dim r As Integer
+    Dim c As Integer
+    Dim o As Integer
+    Dim x As Integer
+    Dim y As Integer
+
+    Dim soppmCol As Integer
+    Dim sstageCol As Integer
+    Dim sgroomCol As Integer
+    Dim sfrCol As Integer
+    Dim sleadCol As Integer
+    Dim sbaCol As Integer
+
+    Dim toppmCol As Integer
+    Dim tstatusCol As Integer
+    Dim tgroomCol As Integer
+    Dim tfrCol As Integer
+    Dim tleadCol As Integer
+    Dim tbaCol As Integer
+    Dim lastChar As Integer
+
+    Dim srcFile As String
+    Dim trackerFile As String
+
+    Dim res As Range
+    Dim oppmrange As Range
+    Dim rng As Range
+
+    Dim dWb As Workbook
+    Dim tWb As Workbook
+
+    Debug.Print "Program Started"
+    Debug.Print "==============="
+
+    'Check if the input files exists
+    If Dir(srcSheet) = vbNullString Then
+        MsgBox "Source sheet not found"
+        End
+    End If
+
+    If Dir(trackerSheet) = vbNullString Then
+        MsgBox "Tracker sheet not found"
+        End
+    End If
+
+    'Get position of last \
+    lastChar = InStrRev(srcSheet, "\")
+
+    'Get Demand file name
+    srcFile = Mid(srcSheet, lastChar + 1)
+
+    'Get position of last \
+    lastChar = InStrRev(trackerSheet, "\")
+
+    'Get Demand file name
+    trackerFile = Mid(trackerSheet, lastChar + 1)
+
+    'Open Demand workbook
+    On Error Resume Next
+
+    Set dWb = Workbooks.Item(srcSheet)
+
+    If dWb Is Nothing Then
+        Workbooks.Open (srcSheet)
+    End If
+
+     'Open Tracker workbook
+    Set tWb = Workbooks.Item(trackerFile)
+
+    If tWb Is Nothing Then
+        Workbooks.Open (trackerSheet)
+    End If
+
+    'Deactivate screen update
+    Application.ScreenUpdating = False
+
+    'Activate Demand sheet
+    Workbooks(srcFile).Activate
+
+    If ActiveSheet.AutoFilterMode Then
+        If ActiveSheet.FilterMode Then
+            ActiveSheet.ShowAllData
+        End If
+    ElseIf ActiveSheet.FilterMode Then
+        ActiveSheet.ShowAllData
+    End If
+
+    'Get last populated row
+    Call findLastRow
+    Debug.Print "Source file " & srcFile & " last row - " & lastRow
+
+    'Get last populated col
+    Call findLastCol
+    Debug.Print "Source file " & srcFile & " last col - " & lastCol
+
+   'Get col with heading "OPPM"
+    soppmCol = findColByName("OPPM ID", lastCol)
+    Debug.Print "Source file " & srcFile & " OPPM col - " & soppmCol
+
+    'Get col with heading "Current Stage"
+    sstageCol = findColByName("Current Stage", lastCol)
+    Debug.Print "Source file " & srcFile & " Stage col - " & sstageCol
+
+    'Get col with heading "Grooming  Target Comp-Date"
+    sgroomCol = findColByName("Grooming  Target Comp-Date", lastCol)
+    Debug.Print "Source file " & srcFile & " Groom col - " & sgroomCol
+
+    'Get col with heading "FR Target Date"
+    sfrCol = findColByName("FR Target Date", lastCol)
+    Debug.Print "Source file " & srcFile & " FR col - " & sfrCol
+
+    'Get col with heading "Cards-BA SME lead"
+    sleadCol = findColByName("CARDS - BA SME Lead", lastCol)
+    Debug.Print "Source file " & srcFile & " SME Lead col - " & sleadCol
+
+    'Get col with heading "Cards-BA SME"
+    sbaCol = findColByName("CARDS - BA SME", lastCol)
+    Debug.Print "Source file " & srcFile & " SME col - " & sbaCol
+
+    o = 1
+
+    'Store the oppm / PV in an array
+    For r = 1 To lastRow
+        'If Cells(r, se0col) <> 0 Then
+            oppm(o, 1) = Cells(r, soppmCol)        'OPPM
+            oppm(o, 2) = Cells(r, sstageCol)       'Stage
+            oppm(o, 3) = Cells(r, sgroomCol)        'Groom
+            oppm(o, 4) = Cells(r, sfrCol)           'FR
+            oppm(o, 5) = Cells(r, sleadCol)         'Lead
+            oppm(o, 6) = Cells(r, sbaCol)           'BA
+
+            o = o + 1
+        'End If
+    Next r
+
+    Debug.Print "Source file " & srcFile & " input (Cards <> 0) - " & o
+    Debug.Print " "
+
+    'Activate Tracker workbook
+    Workbooks(trackerFile).Activate
+
+    If ActiveSheet.Name <> rel & " 19" Then
+        MsgBox "Select correct sheet"
+        Application.ScreenUpdating = True
+        End
+    End If
+
+    If ActiveSheet.AutoFilterMode Then
+        If ActiveSheet.FilterMode Then
+            ActiveSheet.ShowAllData
+        End If
+    ElseIf ActiveSheet.FilterMode Then
+        ActiveSheet.ShowAllData
+    End If
+
+    'Get col with heading "OPPM"
+    toppmCol = findColByName("OPPM", lastCol)
+
+    'Get col with heading "Status"
+    tstatusCol = findColByName("Status", lastCol)
+
+    'Get col with heading "Grooming Complete"
+    tgroomCol = findColByName("Grooming Complete", lastCol)
+
+    'Get col with heading "Draft FR-SIA  Delivered Date"
+    tfrCol = findColByName("Draft FR-SIA  Delivered Date", lastCol)
+
+    'Get col with heading "Cards BA Lead"
+    tleadCol = findColByName("Cards BA Lead", lastCol)
+
+    'Get col with heading "ECMS BA"
+    tbaCol = findColByName("ECMS BA", lastCol)
+
+    'Find the OPPM # from array in tracker and update/insert
+    For x = 2 To 500
+        Set res = Range("b2:b500").Find(oppm(x, 1), LookIn:=xlValues)
+
+        If res Is Nothing Then 'OPPM not found in tracker
+            Debug.Print oppm(x, 1) & " not found in tracker "
+            Debug.Print " "
+        Else 'OPPM found
+            'Debug.Print res
+            Range(res.Address).Select
+
+            y = ActiveCell.row
+
+            If Cells(y, tstatusCol).Value <> oppm(x, 2) Then
+                Debug.Print "OPPM - " & oppm(x, 1)
+                Debug.Print "Current Stage - " & oppm(x, 2)
+                Debug.Print "Tracker Status - " & Cells(y, tstatusCol).Value
+                Debug.Print " "
+            End If
+
+            If Cells(y, tgroomCol).Value <> oppm(x, 3) Then
+                Debug.Print "OPPM - " & oppm(x, 1)
+                Debug.Print "Grooming Target Comp-Date - " & oppm(x, 3)
+                Debug.Print "Tracker Status - " & Cells(y, tgroomCol).Value
+                Debug.Print " "
+            End If
+
+            If Cells(y, tfrCol).Value <> oppm(x, 4) Then
+                Debug.Print "OPPM - " & oppm(x, 1)
+                Debug.Print "Grooming Target Comp-Date - " & oppm(x, 4)
+                Debug.Print "Tracker Grooming Complete - " & Cells(y, tgroomCol).Value
+                Debug.Print " "
+            End If
+
+            If Cells(y, tleadCol).Value <> oppm(x, 5) Then
+                Debug.Print "OPPM - " & oppm(x, 1)
+                Debug.Print "Source SME Lead - " & oppm(x, 5)
+                Debug.Print "Tracker BA Lead - " & Cells(y, tleadCol).Value
+                Debug.Print " "
+            End If
+
+            If Cells(y, tbaCol).Value <> oppm(x, 6) Then
+                Debug.Print "OPPM - " & oppm(x, 1)
+                Debug.Print "Source BA SME - " & oppm(x, 6)
+                Debug.Print "Tracker ECMS BA - " & Cells(y, tbaCol).Value
+                Debug.Print " "
+            End If
+
+        End If
+
+ExitFor:
+
+    Next x
+
+    'Close Demand workbook
+    Workbooks(srcSheet).Close
+    Application.ScreenUpdating = True
+    Debug.Print "Program Ended"
+    Debug.Print "============="
+    End
+
+error:
+    MsgBox "Error : " & Err.Number & " " & Err.Description
+    Application.ScreenUpdating = True
+    End
+
+End Sub
+
+Sub findLastRow()
+
+    lastRow = Cells(Rows.Count, 1).End(xlUp).row
+
+    'Debug.Print lastRow
+End Sub
+
+Sub findLastCol()
+
+    lastCol = Cells(1, Columns.Count).End(xlToLeft).Column
+
+End Sub
+
+Function findColByName(colName As String, lastCol As Integer) As Integer
+
+    For col = 1 To lastCol
+        If Cells(1, col) = colName Then
+            Exit For
+        End If
+    Next col
+
+    findColByName = col
+
+End Function
