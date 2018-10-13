@@ -1,0 +1,210 @@
+Option Explicit
+
+'Compare 2 sheets based on a column
+
+Const file2 = "C:\Users\vv20289\Desktop\Asia EMEA Tracker Master.xlsm"
+Const file1 = "C:\Users\vv20289\Desktop\Demand\Asia Q1 2019 Fitment - In Principle Approval 20180824.xlsx"
+Const rel = "R1"
+Const f1ColName = "OPPM"
+Const f2ColName = "OPPM"
+
+Public lastRow As Integer
+Public lastCol As Integer
+Public col As Integer
+
+Sub CompareSheet()
+    Dim f1Array(500, 10) As String
+
+    Dim r As Integer
+    'Dim c As Integer
+    Dim o As Integer
+    Dim x As Integer
+    Dim y As Integer
+    Dim z As Integer
+
+    Dim f1Col As Integer
+    Dim f2Col As Integer
+
+    Dim lastChar As Integer
+
+    Dim srcFile1 As String
+    Dim srcFile2 As String
+
+    Dim res As Range
+    'Dim f1Arrayrange As Range
+    'Dim rng As Range
+
+    Dim Wb1 As Workbook
+    Dim Wb2 As Workbook
+
+    Debug.Print "Program Started"
+    Debug.Print "==============="
+
+    'Check if the input files exists
+    If Dir(file1) = vbNullString Then
+        MsgBox "Source sheet not found"
+        End
+    End If
+
+    If Dir(file2) = vbNullString Then
+        MsgBox "Tracker sheet not found"
+        End
+    End If
+
+    'Get position of last \ in file1 path
+    lastChar = InStrRev(file1, "\")
+
+    'Get file1 name
+    srcFile1 = Mid(file1, lastChar + 1)
+    Debug.Print "Source file 1 - " & srcFile1
+
+    'Get position of last \ in file2 path
+    lastChar = InStrRev(file2, "\")
+
+    'Get file2 name
+    srcFile2 = Mid(file2, lastChar + 1)
+    Debug.Print "Source file 2 - " & srcFile2
+    Debug.Print " "
+
+    'Open workbook in file1
+    On Error Resume Next
+
+    Set Wb1 = Workbooks.Item(file1)
+
+    If Wb1 Is Nothing Then
+        Workbooks.Open (file1)
+    End If
+
+     'Open workbook in file2
+    Set Wb2 = Workbooks.Item(srcFile2)
+
+    If Wb2 Is Nothing Then
+        Workbooks.Open (file2)
+    End If
+
+    'Deactivate screen update
+    Application.ScreenUpdating = False
+
+    'Activate sheet
+    Workbooks(srcFile1).Activate
+
+    If ActiveSheet.AutoFilterMode Then
+        If ActiveSheet.FilterMode Then
+            ActiveSheet.ShowAllData
+        End If
+    ElseIf ActiveSheet.FilterMode Then
+        ActiveSheet.ShowAllData
+    End If
+
+    'Get last populated row
+    Call findLastRow
+    Debug.Print "Source file 1 " & srcFile1 & " last row - " & lastRow
+
+    'Get last populated col
+    Call findLastCol
+    Debug.Print "Source file 1 " & srcFile1 & " last col - " & lastCol
+    Debug.Print " "
+
+   'Get col with heading in f1ColName
+    f1Col = findColByName(f1ColName, lastCol)
+    Debug.Print "Source file 1 " & srcFile1 & " col " & f1ColName & " pos - " & f1Col
+
+    o = 1
+
+    'Store the col in an array
+    For r = 1 To lastRow
+        If Cells(r, f1Col) <> f1ColName Then
+            f1Array(o, 1) = Cells(r, f1Col)
+
+            o = o + 1
+        End If
+    Next r
+
+    'Activate Tracker workbook
+    Workbooks(srcFile2).Activate
+
+    If ActiveSheet.AutoFilterMode Then
+        If ActiveSheet.FilterMode Then
+            ActiveSheet.ShowAllData
+        End If
+    ElseIf ActiveSheet.FilterMode Then
+        ActiveSheet.ShowAllData
+    End If
+
+    'Get col with heading "f1Array"
+    f2Col = findColByName(f2ColName, lastCol)
+    Debug.Print "Source file 2 " & srcFile2 & " col " & f2ColName & " pos - " & f2Col
+    Debug.Print " "
+    Debug.Print "Source file 2 " & srcFile2 & " input - " & o
+
+    'Find the f1Array # from array in tracker and update/insert
+    z = 0
+
+    For x = 1 To o
+        'If x = 119 Then
+        '    Debug.Print "Stop"
+        'End If
+
+        'Set res = Range("D2:D500").Find(f1Array(x, 1), LookIn:=xlValues)
+        Set res = Range(Cells(2, f2Col), Cells(500, f2Col)).Find(f1Array(x, 1), LookIn:=xlValues)
+
+
+        If res Is Nothing Then
+            Debug.Print f1Array(x, 1) & " not found in file2 "
+            z = z + 1
+        End If
+
+ExitFor:
+
+    Next x
+
+    'Close workbooks
+    Workbooks(file1).Close
+    'Workbooks(file2).Close
+
+    Application.ScreenUpdating = True
+
+    Debug.Print " "
+    Debug.Print "Audit Trail"
+    Debug.Print "============="
+    Debug.Print "Source file " & srcFile1 & " input - " & o
+    Debug.Print "Records not found in " & srcFile2 & " - " & z
+    Debug.Print "Difference - " & o - z
+    Debug.Print " "
+
+    Debug.Print "Program Ended"
+    Debug.Print "============="
+    End
+
+error:
+    MsgBox "Error : " & Err.Number & " " & Err.Description
+    Application.ScreenUpdating = True
+    End
+
+End Sub
+
+Sub findLastRow()
+
+    lastRow = Cells(Rows.Count, 1).End(xlUp).row
+
+    'Debug.Print lastRow
+End Sub
+
+Sub findLastCol()
+
+    lastCol = Cells(1, Columns.Count).End(xlToLeft).Column
+
+    'Debug.Print lastCol
+End Sub
+
+Function findColByName(colName As String, lastCol As Integer) As Integer
+
+    For col = 1 To lastCol
+        If Cells(1, col) = colName Then
+            Exit For
+        End If
+    Next col
+
+    findColByName = col
+
+End Function
